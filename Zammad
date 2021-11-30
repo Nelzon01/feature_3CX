@@ -1,0 +1,174 @@
+<?xml version="1.0"?>
+<Crm xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" Country="TR" Name="Zammad" Version="1" SupportsEmojis="false">
+  <Number Prefix="Off" MaxLength="[MaxLength]" />
+  <Connection MaxConcurrentRequests="16" />
+  <Parameters>
+    <Parameter Name="ctiUrl" Type="String" Parent="General Configuration" Editor="String" Title="Zammad CTI Endpoint URL:" Default="https://helpdesk.gtsnetwork.africa/api/v1/cti/qbTsQ9336RdfcNDQfUTNgKSIjq0" />
+    <Parameter Name="zammadUrl" Type="String" Parent="General Configuration" Editor="String" Title="Zammad URL:" Default="https://helpdesk.gtsnetwork.africa" />
+    <Parameter Name="apiToken" Type="String" Parent="General Configuration" Editor="String" Title="Zammad API Token:" Default="5o_mmnjut1T8h0jW3HC29rqroGxij4wLn-tdBMHThcwd7GXRocv5RoPKXQTcgIEl" />
+    <Parameter Name="ReportCallEnabled" Type="Boolean" Editor="String" Title="Enable Call Journaling" Default="True" />
+    <Parameter Name="Subject" Type="String" Parent="ReportCallEnabled" Editor="String" Title="Call Subject:" Default="3CX PhoneSystem Call" />
+    <Parameter Name="tofield" Type="String" Parent="ReportCallEnabled" Editor="String" Title="Queue Name" Default="Customer Service" />
+    <Parameter Name="InboundCallText" Type="String" Parent="ReportCallEnabled" Editor="String" Title="Answered Inbound Call:" Default="[DateTime]: Answered incoming call from [Number] to [Agent] ([Duration])" />
+    <Parameter Name="OutboundCallText" Type="String" Parent="ReportCallEnabled" Editor="String" Title="Answered Outbound Call:" Default="[DateTime]: Answered outgoing call from [Agent] to [Number] ([Duration])" />
+    <Parameter Name="MissedCallText" Type="String" Parent="ReportCallEnabled" Editor="String" Title="MissedCall:" Default="[DateTime]: Missed call from [Number] to [Agent]" />
+    <Parameter Name="NotAnsweredOutboundCallText" Type="String" Parent="ReportCallEnabled" Editor="String" Title="Unanswered Outbound Call:" Default="[DateTime]: Unanswered outgoing call from [Agent] to [Number]" />
+    <Parameter Name="CreateOnCallDirection" Type="List" Parent="CreateContactEnabled" Editor="String" Title="Create Contacts on Call Direction:" Default="Inbound" ListValues="Inbound,Inbound/Outbound" />
+    <Parameter Name="CreateContactEnabled" Type="Boolean" Editor="String" Title="Enable Contact Creation" Default="True" />
+    <Parameter Name="CreateContactFirstName" Type="String" Parent="CreateContactEnabled" Editor="String" Title="New Contact First Name:" Default="[Number]" />
+    <Parameter Name="CreateContactLastName" Type="String" Parent="CreateContactEnabled" Editor="String" Title="New Contact Last Name:" Default="3CX" />
+  </Parameters>
+  <Authentication Type="No" />
+  <Scenarios>
+    <Scenario Type="REST">
+      <Request SkipIf="" Url="[zammadUrl]/api/v1/users/search?query=*[Number]" MessagePasses="0" RequestEncoding="UrlEncoded" RequestType="Get" ResponseType="Json">
+        <Headers>
+          <Value Key="Authorization" Passes="0" Type="String">Token token=[apiToken]</Value>
+        </Headers>
+      </Request>
+      <Rules>
+        <Rule Type="Any">id</Rule>
+      </Rules>
+      <Variables>
+        <Variable Name="Id" Path="id">
+          <Filter />
+        </Variable>
+        <Variable Name="FirstName" Path="firstname">
+          <Filter />
+        </Variable>
+        <Variable Name="LastName" Path="lastname">
+          <Filter />
+        </Variable>
+        <Variable Name="CompanyName" Path="organization_id">
+          <Filter />
+        </Variable>
+        <Variable Name="Email" Path="email">
+          <Filter />
+        </Variable>
+        <Variable Name="PhoneBusiness" Path="phone">
+          <Filter />
+        </Variable>
+        <Variable Name="PhoneMobile" Path="mobile">
+          <Filter />
+        </Variable>
+      </Variables>
+      <Outputs AllowEmpty="false">
+        <Output Type="FirstName" Passes="0" Value="[FirstName]" />
+        <Output Type="LastName" Passes="0" Value="[LastName]" />
+        <Output Type="CompanyName" Passes="0" Value="[CompanyName]" />
+        <Output Type="Email" Passes="0" Value="[Email]" />
+        <Output Type="PhoneBusiness" Passes="0" Value="[PhoneBusiness]" />
+        <Output Type="PhoneMobile" Passes="0" Value="[PhoneMobile]" />
+        <Output Type="ContactUrl" Passes="0" Value="[zammadUrl]/#user/profile/[Id]" />
+      </Outputs>
+    </Scenario>
+    <Scenario Id="ReportCall" Type="REST">
+      <Request SkipIf="[IIf([ReportCallEnabled]!=True||[EntityId]==&quot;&quot;,True,[IIf([CallType]!=Inbound,True,False)])]" Url="[zammadUrl]/#ticket/create/" MessagePasses="0" RequestContentType="application/json" RequestEncoding="Json" RequestType="Post" ResponseType="Json">
+        <PostValues>
+          <Value Key="event" Passes="0" Type="String">hangup</Value>
+          <Value Key="callId" Passes="2" Type="String">[Number][[CallStartTimeUTC].ToString("yyyy-MM-ddTHH:mmZ")]</Value>
+          <Value Key="to" Passes="0" Type="String">[Agent]</Value>
+          <Value Key="from" Passes="0" Type="String">[Number]</Value>
+          <Value Key="direction" Passes="2" Type="String">[IIf([CallType]==Inbound||[CallType]==Missed,in,out)]</Value>
+          <Value Key="cause" Passes="2" Type="String">[IIf([CallType]==Notanswered||[CallType]==Missed,noAnswer,normalClearing)]</Value>
+          <Value Key="CallType" Passes="0" Type="String">[CallType]</Value>
+          <Value Key="Number" Passes="0" Type="String">[Number]</Value>
+          <Value Key="Agent" Passes="0" Type="String">[Agent]</Value>
+          <Value Key="Duration" Passes="0" Type="String">[Duration]</Value>
+          <Value Key="DurationTimespan" Passes="4" Type="String">[[[DurationTimespan].get_TotalMinutes()].ToString("F0")]</Value>
+          <Value Key="DateTime" Passes="0" Type="String">[DateTime]</Value>
+          <Value Key="CallStartTimeLocal" Passes="2" Type="String">[[CallStartTimeLocal].ToString("yyyy-MM-ddTHH:mm:ssZ")]</Value>
+          <Value Key="CallStartTimeUTC" Passes="2" Type="String">[[CallStartTimeUTC].ToString("yyyy-MM-ddTHH:mmZ")]</Value>
+          <Value Key="CallEndTimeLocal" Passes="2" Type="String">[[CallEndTimeLocal].ToString("yyyy-MM-ddTHH:mm:ssZ")]</Value>
+          <Value Key="CallEndTimeUTC" Passes="2" Type="String">[[CallEndTimeUTC].ToString("yyyy-MM-ddTHH:mm:ssZ")]</Value>
+        </PostValues>
+      </Request>
+      <Rules>
+        <Rule Type="Any">id</Rule>
+      </Rules>
+      <Variables>
+        <Variable Name="Id" Path="id">
+          <Filter />
+        </Variable>
+      </Variables>
+      <Outputs Next="ReportCallMissed" AllowEmpty="false" />
+    </Scenario>
+    <Scenario Id="ReportCallMissed" Type="REST">
+      <Request SkipIf="[IIf([ReportCallEnabled]!=True||[EntityId]==&quot;&quot;,True,[IIf([CallType]!=Missed,True,False)])]" Url="[zammadUrl]/#ticket/create/" MessagePasses="0" RequestContentType="application/json" RequestEncoding="Json" RequestType="Put" ResponseType="Json" />
+      <Rules>
+        <Rule Type="Any">id</Rule>
+      </Rules>
+      <Variables>
+        <Variable Name="Id" Path="id">
+          <Filter />
+        </Variable>
+      </Variables>
+      <Outputs Next="ReportCallOutbound" AllowEmpty="true" />
+    </Scenario>
+    <Scenario Id="ReportCallOutbound" Type="REST">
+      <Request SkipIf="[IIf([ReportCallEnabled]!=True||[EntityId]==&quot;&quot;,True,[IIf([CallType]!=Outbound,True,False)])]" Url="[zammadUrl]/#ticket/create/" MessagePasses="0" RequestContentType="application/json" RequestEncoding="Json" RequestType="Post" ResponseType="Json" />
+      <Rules>
+        <Rule Type="Any">Id</Rule>
+      </Rules>
+      <Variables>
+        <Variable Name="Id" Path="id">
+          <Filter />
+        </Variable>
+      </Variables>
+      <Outputs Next="ReportCallNotanswered" AllowEmpty="true" />
+    </Scenario>
+    <Scenario Id="ReportCallNotanswered" Type="REST">
+      <Request SkipIf="[IIf([ReportCallEnabled]!=True||[EntityId]==&quot;&quot;,True,[IIf([CallType]!=Notanswered,True,False)])]" Url="[zammadUrl]/#ticket/create/" MessagePasses="0" RequestContentType="application/json" RequestEncoding="Json" RequestType="Post" ResponseType="Json" />
+      <Variables />
+      <Outputs AllowEmpty="true" />
+    </Scenario>
+    <Scenario Id="CreateContactRecord" Type="REST">
+      <Request SkipIf="[CreateContactEnabled]!=True" Url="[zammadUrl]/api/v1/users" MessagePasses="0" RequestEncoding="Json" RequestType="Post" ResponseType="Json">
+        <Headers>
+          <Value Key="Authorization" Passes="0" Type="String">Token token=[apiToken]</Value>
+        </Headers>
+        <PostValues>
+          <Value Key="firstname" Passes="2" Type="String">[[CreateContactFirstName]]</Value>
+          <Value Key="lastname" Passes="2" Type="String">[[CreateContactLastName]]</Value>
+          <Value Key="mobile" Passes="0" Type="String">[Number]</Value>
+          <Value Key="phone" Passes="0" Type="String">[Number]</Value>
+        </PostValues>
+      </Request>
+      <Rules>
+        <Rule Type="Any">id</Rule>
+      </Rules>
+      <Variables>
+        <Variable Name="Id" Path="id">
+          <Filter />
+        </Variable>
+        <Variable Name="FirstName" Path="firstname">
+          <Filter />
+        </Variable>
+        <Variable Name="LastName" Path="lastname">
+          <Filter />
+        </Variable>
+        <Variable Name="CompanyName" Path="organization_id">
+          <Filter />
+        </Variable>
+        <Variable Name="Email" Path="email">
+          <Filter />
+        </Variable>
+        <Variable Name="PhoneBusiness" Path="phone">
+          <Filter />
+        </Variable>
+        <Variable Name="PhoneMobile" Path="mobile">
+          <Filter />
+        </Variable>
+      </Variables>
+      <Outputs AllowEmpty="false">
+        <Output Type="ContactUrl" Passes="0" Value="[zammadUrl]/#user/profile/[Id]" />
+        <Output Type="FirstName" Passes="0" Value="[FirstName]" />
+        <Output Type="LastName" Passes="0" Value="[LastName]" />
+        <Output Type="CompanyName" Passes="0" Value="[CompanyName]" />
+        <Output Type="Email" Passes="0" Value="[Email]" />
+        <Output Type="PhoneBusiness" Passes="0" Value="[PhoneBusiness]" />
+        <Output Type="PhoneMobile" Passes="0" Value="[PhoneMobile]" />
+      </Outputs>
+    </Scenario>
+  </Scenarios>
+</Crm>
